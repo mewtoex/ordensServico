@@ -11,6 +11,7 @@ namespace Os.Api.Infra.Auth;
 public class JwtTokenIssuer(IConfiguration configuration) : ITokenIssuer
 {
     public const string Issuer = "os-api";
+    public const string SecurityVersionClaim = "security_version";
     public const string Audience = "os-client";
     public LoginResponse Issue(User user)
     {
@@ -19,6 +20,8 @@ public class JwtTokenIssuer(IConfiguration configuration) : ITokenIssuer
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(SecurityVersionClaim, user.SecurityVersion.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Role, user.Role.ToString())
         };
         var token = new JwtSecurityToken(Issuer, Audience, claims, expires: expiresAt,

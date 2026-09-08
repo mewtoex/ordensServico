@@ -10,8 +10,16 @@ public class OsDb(DbContextOptions<OsDb> options) : DbContext(options)
     public DbSet<CatalogItem> Catalog => Set<CatalogItem>();
     public DbSet<ServiceOrder> Orders => Set<ServiceOrder>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<User>().Property(user => user.Version).IsRowVersion();
+        b.Entity<RefreshSession>().Property(session => session.Id).ValueGeneratedNever();
+        b.Entity<RefreshSession>().Property(session => session.Version).IsRowVersion();
+        b.Entity<RefreshSession>().Property(session => session.TokenHash).HasMaxLength(64);
+        b.Entity<RefreshSession>().HasIndex(session => session.TokenHash).IsUnique();
+        b.Entity<RefreshSession>().HasIndex(session => session.ExpiresAt);
+        b.Entity<RefreshSession>().HasOne(session => session.User).WithMany().HasForeignKey(session => session.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<AuditEntry>().Property(entry => entry.Id).ValueGeneratedNever();
         b.Entity<OrderItem>().Property(item => item.Id).ValueGeneratedNever();
         b.Entity<AuditEntry>().ToTable("AuditEntry");

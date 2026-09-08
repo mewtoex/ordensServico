@@ -11,6 +11,9 @@ public class OrderItemsController(IOrdersService service) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> Add(Guid id, ItemRequest request) => Ok(await service.AddItem(id, request));
+    [HttpPatch("{itemId:guid}/quantity")]
+    public async Task<ActionResult<OrderResponse>> UpdateQuantity(Guid id, Guid itemId, UpdateItemQuantityRequest request) => Ok(await service.UpdateQuantity(id, itemId, request));
+
     [HttpDelete("{itemId:guid}")]
     public async Task<IActionResult> Remove(Guid id, Guid itemId)
     {

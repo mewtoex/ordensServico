@@ -47,6 +47,7 @@ public sealed class SqlServerApiFactory : WebApplicationFactory<Program>, IAsync
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.UseSetting("RateLimiting:LoginPermitLimit", "100");
         builder.UseSetting("ConnectionStrings:Database", _connectionString);
         builder.UseSetting("Jwt:Key", "integration-only-signing-key-at-least-32-bytes");
         builder.UseSetting("Cors:AllowedOrigins:0", AllowedOrigin);

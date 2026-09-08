@@ -36,7 +36,7 @@ public class CatalogService(ICatalogRepository catalog, IUnitOfWork unitOfWork) 
 
     public async Task DeleteCatalog(Guid id)
     {
-        catalog.Remove(await catalog.GetByIdAsync(id) ?? throw new KeyNotFoundException());
+        catalog.SoftDelete(await catalog.GetByIdAsync(id) ?? throw new KeyNotFoundException());
         await unitOfWork.SaveChangesAsync();
     }
 }

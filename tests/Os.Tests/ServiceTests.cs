@@ -117,7 +117,7 @@ public class ServiceTests
         var users = new Mock<IUserRepository>(MockBehavior.Strict);
         users.Setup(repo => repo.GetByEmailAsync(user.Email)).ReturnsAsync(user);
         var tokens = new Mock<ITokenIssuer>(MockBehavior.Strict);
-        var service = new AuthService(users.Object, hasher, Mock.Of<ICurrentUser>(), tokens.Object);
+        var service = new AuthService(users.Object, hasher, Mock.Of<ICurrentUser>(), tokens.Object, Mock.Of<IRefreshSessionRepository>(), Mock.Of<IUnitOfWork>());
 
         var result = await service.Login(new LoginRequest(" ANA@EXAMPLE.COM ", "wrong-password"));
 

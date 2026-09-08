@@ -73,6 +73,28 @@ public class OrdersService(
         return OrderResponse.From(order);
     }
 
+    public async Task<OrderResponse> AssignTechnician(Guid id, AssignTechnicianRequest request)
+    {
+        var order = await LoadAsync(id);
+        order.EnsureEditable();
+        if (!await users.IsActiveTechnicianAsync(request.TechnicianId))
+        {
+            throw new BusinessException("Técnico inválido.");
+        }
+        order.AssignTechnician(request.TechnicianId, currentUser.Id);
+        await unitOfWork.SaveChangesAsync();
+        return OrderResponse.From(order);
+    }
+
+    public async Task<OrderResponse> UpdateQuantity(Guid id, Guid itemId, UpdateItemQuantityRequest request)
+    {
+        var order = await LoadAsync(id);
+        order.UpdateQuantity(itemId, request.Quantity, currentUser.Id);
+        orders.MarkChanged(order);
+        await unitOfWork.SaveChangesAsync();
+        return OrderResponse.From(order);
+    }
+
     public async Task RemoveItem(Guid id, Guid itemId)
     {
         var order = await LoadAsync(id);

@@ -14,6 +14,7 @@ public class ReportRepository(OsDb database) : IReportRepository
             && order.ClosedAt >= start && order.ClosedAt < end);
         var completed = await completedOrders.CountAsync();
         var revenue = await completedOrders.SelectMany(order => order.Items)
+            .Where(item => item.DeletedAt == null)
             .SumAsync(item => (decimal?)(item.UnitPrice * item.Quantity)) ?? 0m;
         return new MonthlyReportResponse(start.Year, start.Month, created, completed, revenue);
     }

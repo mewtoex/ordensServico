@@ -14,6 +14,9 @@ public class UsersController(IUsersService service) : ControllerBase
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<ActionResult<UserResponse>> Create(UserRequest request) => StatusCode(201, await service.CreateUser(request));
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<UserResponse>> Update(Guid id, UpdateUserRequest request) => Ok(await service.Update(id, request));
+
     [HttpPatch("{id:guid}/active")]
     public async Task<IActionResult> SetActive(Guid id, [FromQuery] bool active)
     {

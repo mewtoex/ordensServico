@@ -39,7 +39,7 @@ public class CustomersService(ICustomerRepository customers, IUnitOfWork unitOfW
 
     public async Task DeleteCustomer(Guid id)
     {
-        customers.Remove(await customers.GetByIdAsync(id) ?? throw new KeyNotFoundException());
+        customers.SoftDelete(await customers.GetByIdAsync(id) ?? throw new KeyNotFoundException());
         await unitOfWork.SaveChangesAsync();
     }
 }

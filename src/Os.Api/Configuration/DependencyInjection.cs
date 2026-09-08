@@ -12,6 +12,7 @@ using Os.Api.Application.Services;
 using Os.Api.Domain;
 using Os.Api.Infra;
 using Os.Api.Infra.Auth;
+using Os.Api.Infra.Documents;
 using Os.Api.Infra.Health;
 using Os.Api.Infra.Repositories;
 
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddDbContext<OsDb>(options => options.UseSqlServer(configuration.GetConnectionString("Database")
             ?? throw new InvalidOperationException("Configure ConnectionStrings__Database.")));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IRefreshSessionRepository, RefreshSessionRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
@@ -41,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IOrdersService, OrdersService>();
         services.AddScoped<IReportsService, ReportsService>();
+        services.AddScoped<IOrderPdfService, OrderPdfService>();
+        services.AddScoped<IOrderPdfRenderer, OrderPdfRenderer>();
         services.AddScoped<IOrderSummaryService, OrderSummaryService>();
         services.AddControllers().AddJsonOptions(options =>
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
@@ -50,6 +54,9 @@ public static class DependencyInjection
         services.AddHealthChecks().AddCheck<SqlServerHealthCheck>("sqlserver", timeout: TimeSpan.FromSeconds(5));
         services.AddJwtAuthentication(configuration);
         services.AddAuthorization();
+        var loginPermitLimit = configuration.GetValue<int?>("RateLimiting:LoginPermitLimit") ?? 10;
+        if (loginPermitLimit is < 1 or > 1000)
+            throw new InvalidOperationException("RateLimiting:LoginPermitLimit deve estar entre 1 e 1000.");
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = 429;
@@ -57,7 +64,7 @@ public static class DependencyInjection
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 10,
+                    PermitLimit = loginPermitLimit,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 }));

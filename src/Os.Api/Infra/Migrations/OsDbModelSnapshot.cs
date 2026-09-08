@@ -59,6 +59,9 @@ namespace Os.Api.Infra.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<int>("Kind")
                         .HasColumnType("int");
 
@@ -80,6 +83,9 @@ namespace Os.Api.Infra.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -107,6 +113,9 @@ namespace Os.Api.Infra.Migrations
                     b.Property<Guid>("CatalogItemId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<int>("Kind")
                         .HasColumnType("int");
 
@@ -131,6 +140,46 @@ namespace Os.Api.Infra.Migrations
                     b.HasIndex("ServiceOrderId");
 
                     b.ToTable("OrderItem");
+                });
+
+            modelBuilder.Entity("Os.Api.Domain.RefreshSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("SecurityVersion")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshSessions");
                 });
 
             modelBuilder.Entity("Os.Api.Domain.ServiceOrder", b =>
@@ -201,6 +250,15 @@ namespace Os.Api.Infra.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("SecurityVersion")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -241,6 +299,17 @@ namespace Os.Api.Infra.Migrations
                         .IsRequired();
 
                     b.Navigation("CatalogItem");
+                });
+
+            modelBuilder.Entity("Os.Api.Domain.RefreshSession", b =>
+                {
+                    b.HasOne("Os.Api.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Os.Api.Domain.ServiceOrder", b =>

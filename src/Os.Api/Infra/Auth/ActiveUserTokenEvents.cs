@@ -14,7 +14,9 @@ public class ActiveUserTokenEvents(IUserRepository users) : JwtBearerEvents
             return;
         }
         var user = await users.GetByIdAsync(id);
-        if (user is null || !user.Active || user.Role.ToString() != context.Principal?.FindFirstValue(ClaimTypes.Role))
+        if (user is null || !user.Active
+            || context.Principal?.FindFirstValue(JwtTokenIssuer.SecurityVersionClaim) != user.SecurityVersion.ToString()
+            || user.Role.ToString() != context.Principal?.FindFirstValue(ClaimTypes.Role))
         {
             context.Fail("Acesso revogado");
         }

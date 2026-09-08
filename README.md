@@ -21,7 +21,7 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 dotnet run --project src/Os.Api -- --urls http://localhost:5080
 ```
 
-Swagger: http://localhost:5080/swagger. Faça login em `POST /api/auth/login`, clique em **Authorize** e cole o `accessToken`. Em outros clientes, envie `Authorization: Bearer <accessToken>`. Token expira em uma hora. Usuário desativado perde acesso mesmo com token ainda válido. Não há cadastro público.
+Swagger: http://localhost:5080/swagger. Faça login em `POST /api/auth/login`, clique em **Authorize** e cole o `accessToken`. Em outros clientes, envie `Authorization: Bearer <accessToken>`. O access token expira em uma hora; o login também retorna refresh token de uso único com validade de sete dias. Usuário desativado perde acesso mesmo com token ainda válido. Não há cadastro público.
 
 Em produção, publique atrás de HTTPS, configure segredos fora do repositório, use usuário de banco com permissões limitadas e certificado válido (remova `TrustServerCertificate=true`). Migrations são executadas explicitamente antes da aplicação.
 
@@ -29,13 +29,14 @@ Em produção, publique atrás de HTTPS, configure segredos fora do repositório
 
 - `POST /api/auth/login`, `GET /api/auth/me`.
 - Admin: `GET/POST /api/users`; `PATCH /api/users/{id}/active?active=false` desativa um usuário.
-- Clientes: `GET/POST /api/customers`, `PUT/DELETE /api/customers/{id}`. Escrita exclusiva do Admin; registros com OS não podem ser excluídos.
-- Serviços e peças: `GET/POST /api/catalog`, `PUT/DELETE /api/catalog/{id}`. Escrita exclusiva do Admin; itens utilizados não podem ser excluídos.
+- Clientes: `GET/POST /api/customers`, `PUT/DELETE /api/customers/{id}`. Escrita exclusiva do Admin; exclusão lógica preserva os vínculos com OS existentes.
+- Serviços e peças: `GET/POST /api/catalog`, `PUT/DELETE /api/catalog/{id}`. Escrita exclusiva do Admin; exclusão lógica preserva os itens já utilizados.
 - OS: `GET/POST /api/orders`, `GET /api/orders/{id}`. Apenas Admin cria OS e atribui um técnico ativo.
 - `PATCH /api/orders/{id}/status`, corpo `{"status":"EmAndamento"}`.
 - `POST /api/orders/{id}/items`, corpo `{"catalogItemId":"GUID","quantity":2}`; `DELETE /api/orders/{id}/items/{itemId}`.
 - `GET /api/orders/{id}/history`: ator, ação, detalhes e horário UTC.
-- `GET /api/orders/{id}/summary`: download de mensagem formatada em TXT. PDF e envio de webhook não estão implementados.
+- `GET /api/orders/{id}/summary`: download do resumo em TXT.
+- `GET /api/orders/{id}/pdf`: download do comprovante PDF, com paginação automática e fontes incluídas no backend. Webhook não implementado; foi escolhida a alternativa PDF.
 - Admin: `GET /api/reports/monthly?year=2026&month=9`: quantidade criada e receita de OS concluídas no mês (UTC).
 - `GET /health`: prontidão com conexão real ao SQL Server; retorna 200 quando saudável e 503 em falhas.
 - `GET /health/live`: disponibilidade do processo, independente do banco.
@@ -48,7 +49,7 @@ Fluxo: Aberta → EmAndamento → Concluida. EmAndamento pode ir para Aguardando
 
 Admin acessa todas as OS. Técnico acessa somente suas OS e os clientes relacionados, consulta o catálogo e altera itens/status. Não gerencia usuários, clientes, catálogo ou relatórios.
 
-Mão de obra é um item de catálogo do tipo `Servico`; materiais são `Peca`. Total sempre calculado no servidor com valores decimais. Cada item preserva nome, tipo e preço do momento da inclusão, mesmo se o catálogo mudar. Para alterar quantidade, remova e adicione o item novamente (usa o preço atual).
+Mão de obra é um item de catálogo do tipo `Servico`; materiais são `Peca`. Total sempre calculado no servidor com valores decimais. Cada item preserva nome, tipo e preço do momento da inclusão, mesmo se o catálogo mudar. A alteração de quantidade preserva o ID e o preço original do item. Remover e adicionar novamente usa o preço atual do catálogo.
 
 Criação, status e alterações de itens geram histórico no mesmo salvamento. Rowversion detecta concorrência durante alterações e retorna 409. Senhas usam o PasswordHasher do ASP.NET Core; login limitado a dez tentativas por minuto por IP. Erros seguem Problem Details; validações retornam 400, falta de autenticação 401, permissões 403, ausência 404 e conflitos 409. OS de outro técnico retorna 404.
 
@@ -148,3 +149,38 @@ São aceitos os métodos GET, POST, PUT, PATCH e DELETE, com headers Authorizati
 ## Correções verificadas pela integração
 
 A validação de preços usa cultura invariável para interpretar os limites decimais. Os IDs de itens e auditoria são gerados no domínio e mapeados com `ValueGeneratedNever`, evitando que novos registros sejam tratados como atualizações. A migration `ConfigureClientAssignedChildIds` registra essa mudança no snapshot do EF, sem DDL sobre as tabelas existentes.
+
+## Sessões, senha e edição de usuários
+
+- `POST /api/auth/refresh`: público, corpo `{"refreshToken":"token retornado no login"}`. Retorna um novo par access/refresh; o refresh anterior deixa de valer. Token inválido, vencido, consumido ou revogado retorna 401. Duas renovações simultâneas permitem apenas uma confirmação; a outra recebe 409.
+- `POST /api/auth/change-password`: autenticado, corpo `{"currentPassword":"senha atual","newPassword":"nova senha com pelo menos 12 caracteres"}`. Retorna 204 e invalida todos os access/refresh tokens anteriores. Faça login novamente com a nova senha. Senha atual incorreta retorna 400.
+- `PUT /api/users/{id}`: Admin, corpo com `name`, `email` e `role` (`Admin` ou `Tecnico`). Mudanças de e-mail ou perfil invalidam as sessões anteriores. Alterar somente o nome não exige novo login.
+
+O próprio administrador não pode remover seu perfil Admin. Para mudar o perfil de um técnico com OS abertas, reatribua essas ordens primeiro. Desativar e reativar um usuário não restaura tokens antigos.
+
+Refresh tokens são gerados com 32 bytes aleatórios e persistidos apenas como SHA-256. A tabela `RefreshSessions` usa rowversion para impedir consumo duplicado. A versão de segurança e a rowversion de `Users` protegem alterações simultâneas e revogação de sessões. A migration `AddRefreshSessionsAndUserSecurity` adiciona esses campos e a tabela. Tokens emitidos antes desta mudança precisam ser substituídos por novo login.
+
+O limite padrão de login/refresh continua sendo dez requisições por minuto por IP. Pode ser configurado por `RateLimiting:LoginPermitLimit` (1 a 1000); os testes usam 100 para exercitar os fluxos, além de um teste específico do limitador.
+
+## Reatribuição e quantidade
+
+- `PATCH /api/orders/{id}/technician`: Admin, corpo `{"technicianId":"GUID"}`. Aceita somente técnico ativo e OS não encerrada. O técnico anterior perde o acesso à ordem; o novo técnico passa a poder consultá-la e atualizar seus itens/status.
+- `PATCH /api/orders/{id}/items/{itemId}/quantity`: Admin ou técnico atribuído, corpo `{"quantity":3}`. Quantidade entre 1 e 10000. Preserva o preço histórico e recalcula o total no backend.
+
+As duas operações registram ator, data/hora e valores anterior/novo no histórico. OS concluídas ou canceladas não permitem essas alterações.
+
+## Comprovante PDF
+
+O endpoint `/api/orders/{id}/pdf` segue as mesmas permissões da consulta da OS. O arquivo contém cliente, descrição, datas em UTC, status, serviços/peças, quantidades, preços históricos, subtotais e total. Descrições e nomes longos quebram linha; os itens paginam automaticamente com cabeçalho e número de página.
+
+O serviço `IOrderPdfService` consulta o DTO autorizado e delega a geração a `IOrderPdfRenderer`. A infraestrutura usa [PDFsharp](https://docs.pdfsharp.net/General/Overview/Overview.html) e fontes Bitstream Vera embutidas, com licença em `src/Os.Api/Resources/Fonts/bitstream-vera-license.txt`. Nenhuma instalação de fonte do sistema ou serviço externo é necessária.
+
+Os testes adicionais validam rotação concorrente, expiração e revogação de tokens, troca de senha, edição de usuários, transferência de acesso entre técnicos, preços históricos e download/paginação do PDF. O documento de teste com 45 itens foi renderizado e conferido visualmente.
+
+### Exclusão lógica
+
+Clientes, catálogo e itens da OS possuem `DeletedAt` (UTC). Os endpoints DELETE marcam a data e retornam 204; repetir a exclusão retorna 404. Clientes e catálogo excluídos não aparecem nas listagens operacionais nem podem ser editados ou usados em novas inclusões. As consultas filtram esses cadastros nos repositories, preservando a navegação das OS antigas para seus dados históricos.
+
+Itens removidos continuam no banco com seus preços e quantidades originais e registro de auditoria, mas ficam fora dos DTOs, comprovantes, totais e receita mensal. Uma OS encerrada continua bloqueada para alterações. Usuários mantêm a desativação por `Active`, com revogação de tokens; OS mantêm o cancelamento por status, sem apagar histórico.
+
+A migration `AddSoftDeletion` adiciona três colunas nullable sem apagar registros existentes. O teste de integração cobre exclusão de cadastros vinculados, permissões, bloqueio de reutilização, preservação da OS/PDF, remoção de itens e cálculo da receita.

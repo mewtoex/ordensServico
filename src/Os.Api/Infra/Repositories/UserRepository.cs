@@ -12,5 +12,7 @@ public class UserRepository(OsDb database) : IUserRepository
     public async Task<IReadOnlyList<User>> ListAsync() => await database.Users.AsNoTracking().OrderBy(user => user.Name).ThenBy(user => user.Id).ToListAsync();
     public Task<bool> HasAdminAsync() => database.Users.AnyAsync(user => user.Role == Role.Admin);
     public Task<bool> IsActiveTechnicianAsync(Guid id) => database.Users.AnyAsync(user => user.Id == id && user.Active && user.Role == Role.Tecnico);
+    public Task<bool> HasOpenOrdersAsync(Guid id) => database.Orders.AnyAsync(order => order.TechnicianId == id
+        && order.Status != OrderStatus.Concluida && order.Status != OrderStatus.Cancelada);
     public void Add(User user) => database.Users.Add(user);
 }

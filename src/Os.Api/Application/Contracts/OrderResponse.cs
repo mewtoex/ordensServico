@@ -7,6 +7,6 @@ public record OrderResponse(Guid Id, Guid CustomerId, string CustomerName, Guid 
 {
     public static OrderResponse From(ServiceOrder order) => new(order.Id, order.CustomerId, order.Customer.Name,
         order.TechnicianId, order.Description, order.Status, order.CreatedAt, order.ClosedAt, order.Total,
-        order.Items.Select(item => new OrderItemResponse(item.Id, item.CatalogItemId, item.Name, item.Kind,
+        order.Items.Where(item => item.DeletedAt == null).Select(item => new OrderItemResponse(item.Id, item.CatalogItemId, item.Name, item.Kind,
             item.Quantity, item.UnitPrice, item.Quantity * item.UnitPrice)).ToList());
 }

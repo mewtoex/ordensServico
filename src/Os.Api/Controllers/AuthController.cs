@@ -16,6 +16,20 @@ public class AuthController(IAuthService service) : ControllerBase
         var result = await service.Login(request);
         return result is null ? Unauthorized() : Ok(result);
     }
+    [HttpPost("refresh"), AllowAnonymous, EnableRateLimiting("login")]
+    public async Task<ActionResult<LoginResponse>> Refresh(RefreshRequest request)
+    {
+        var result = await service.Refresh(request);
+        return result is null ? Unauthorized() : Ok(result);
+    }
+
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        await service.ChangePassword(request);
+        return NoContent();
+    }
+
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> Me() => Ok(await service.Me());
 }

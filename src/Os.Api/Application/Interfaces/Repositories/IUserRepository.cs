@@ -9,5 +9,6 @@ public interface IUserRepository
     Task<IReadOnlyList<User>> ListAsync();
     Task<bool> HasAdminAsync();
     Task<bool> IsActiveTechnicianAsync(Guid id);
+    Task<bool> HasOpenOrdersAsync(Guid id);
     void Add(User user);
 }

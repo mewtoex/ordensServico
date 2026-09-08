@@ -7,5 +7,5 @@ public interface ICatalogRepository
     Task<CatalogItem?> GetByIdAsync(Guid id);
     Task<PagedResponse<CatalogItem>> ListAsync(int page, int pageSize);
     void Add(CatalogItem item);
-    void Remove(CatalogItem item);
+    void SoftDelete(CatalogItem item);
 }

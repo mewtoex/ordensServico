@@ -17,7 +17,7 @@ public class ServiceOrder
     public byte[] Version { get; set; } = [];
     public List<OrderItem> Items { get; set; } = [];
     public List<AuditEntry> History { get; set; } = [];
-    public decimal Total => Items.Sum(i => i.UnitPrice * i.Quantity);
+    public decimal Total => Items.Where(i => i.DeletedAt == null).Sum(i => i.UnitPrice * i.Quantity);
 
     public void AddItem(CatalogItem catalogItem, int quantity, Guid actorId)
     {
@@ -46,14 +46,39 @@ public class ServiceOrder
     public void RemoveItem(Guid itemId, Guid actorId)
     {
         EnsureEditable();
-        var item = Items.SingleOrDefault(item => item.Id == itemId) ?? throw new KeyNotFoundException();
-        Items.Remove(item);
+        var item = Items.SingleOrDefault(item => item.Id == itemId && item.DeletedAt == null) ?? throw new KeyNotFoundException();
+        item.DeletedAt = DateTimeOffset.UtcNow;
         History.Add(new AuditEntry
         {
             ActorId = actorId,
             Action = "ItemRemovido",
             Detail = $"{item.Name}: {item.Quantity} x {item.UnitPrice}"
         });
+    }
+
+    public void UpdateQuantity(Guid itemId, int quantity, Guid actorId)
+    {
+        EnsureEditable();
+        if (quantity is < 1 or > 10000)
+        {
+            throw new BusinessException("Quantidade deve estar entre 1 e 10000.");
+        }
+        var item = Items.SingleOrDefault(item => item.Id == itemId && item.DeletedAt == null) ?? throw new KeyNotFoundException();
+        if (quantity == item.Quantity)
+            return;
+        History.Add(new AuditEntry { ActorId = actorId, Action = "QuantidadeAlterada", Detail = $"{item.Name}: {item.Quantity} -> {quantity}" });
+        item.Quantity = quantity;
+    }
+
+    public void AssignTechnician(Guid technicianId, Guid actorId)
+    {
+        EnsureEditable();
+        if (technicianId == Guid.Empty)
+            throw new BusinessException("Técnico inválido.");
+        if (technicianId == TechnicianId)
+            return;
+        History.Add(new AuditEntry { ActorId = actorId, Action = "TecnicoAlterado", Detail = $"{TechnicianId} -> {technicianId}" });
+        TechnicianId = technicianId;
     }
 
     public void EnsureEditable()

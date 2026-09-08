@@ -2,6 +2,7 @@ namespace Os.Api.Domain;
 
 public class OrderItem
 {
+    public DateTimeOffset? DeletedAt { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ServiceOrderId
     { get; set; }

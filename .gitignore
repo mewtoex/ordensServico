@@ -39,3 +39,6 @@ artifacts/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Arquivos temporários de revisão visual
+tmp/

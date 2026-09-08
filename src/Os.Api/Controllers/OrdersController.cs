@@ -23,6 +23,9 @@ public class OrdersController(IOrdersService service) : ControllerBase
             id = order.Id
         }, order);
     }
+    [HttpPatch("{id:guid}/technician"), Authorize(Roles = "Admin")]
+    public async Task<ActionResult<OrderResponse>> AssignTechnician(Guid id, AssignTechnicianRequest request) => Ok(await service.AssignTechnician(id, request));
+
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<OrderResponse>> ChangeStatus(Guid id, StatusRequest request) => Ok(await service.Status(id, request));
 }

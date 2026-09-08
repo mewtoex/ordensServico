@@ -7,10 +7,10 @@ namespace Os.Api.Infra.Repositories;
 
 public class CustomerRepository(OsDb database) : ICustomerRepository
 {
-    public Task<Customer?> GetByIdAsync(Guid id) => database.Customers.SingleOrDefaultAsync(customer => customer.Id == id);
+    public Task<Customer?> GetByIdAsync(Guid id) => database.Customers.SingleOrDefaultAsync(customer => customer.Id == id && customer.DeletedAt == null);
     public async Task<PagedResponse<Customer>> ListAsync(string? search, int page, int pageSize, Guid? technicianId)
     {
-        var query = database.Customers.AsNoTracking();
+        var query = database.Customers.AsNoTracking().Where(customer => customer.DeletedAt == null);
         if (technicianId.HasValue)
         {
             query = query.Where(customer => database.Orders.Any(order => order.CustomerId == customer.Id && order.TechnicianId == technicianId));
@@ -28,5 +28,5 @@ public class CustomerRepository(OsDb database) : ICustomerRepository
         return new PagedResponse<Customer>(total, page, pageSize, customers);
     }
     public void Add(Customer customer) => database.Customers.Add(customer);
-    public void Remove(Customer customer) => database.Customers.Remove(customer);
+    public void SoftDelete(Customer customer) => customer.DeletedAt = DateTimeOffset.UtcNow;
 }
