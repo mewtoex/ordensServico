@@ -52,6 +52,14 @@ public class AuthService(IUserRepository users, IPasswordHasher<User> hasher, IC
 
     public async Task<UserResponse> Me() => UserResponse.From(await users.GetByIdAsync(currentUser.Id) ?? throw new KeyNotFoundException());
 
+    public async Task Logout()
+    {
+        var user = await users.GetByIdAsync(currentUser.Id) ?? throw new KeyNotFoundException();
+        // Invalidate access and refresh tokens together, including concurrent rotations.
+        user.SecurityVersion = Guid.NewGuid();
+        await unitOfWork.SaveChangesAsync();
+    }
+
     private async Task<LoginResponse> IssueSessionAsync(User user)
     {
         var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));

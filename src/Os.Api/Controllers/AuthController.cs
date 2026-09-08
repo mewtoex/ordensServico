@@ -32,4 +32,11 @@ public class AuthController(IAuthService service) : ControllerBase
 
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> Me() => Ok(await service.Me());
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        await service.Logout();
+        return NoContent();
+    }
 }

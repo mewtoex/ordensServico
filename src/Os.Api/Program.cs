@@ -3,8 +3,10 @@ using Os.Api.Infra;
 using Os.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddBackendMonitoring();
 builder.Services.AddBackend(builder.Configuration);
 var app = builder.Build();
+app.UseMiddleware<RequestTelemetryMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
@@ -18,6 +20,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapBackendHealthChecks();
+app.MapBackendMetrics();
 if (args.Contains("--seed-admin"))
 {
     using var scope = app.Services.CreateScope();

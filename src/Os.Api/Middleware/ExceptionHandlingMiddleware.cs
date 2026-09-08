@@ -24,9 +24,11 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
             };
             if (status == 500)
             {
-                logger.LogError(exception, "Falha inesperada");
+                logger.LogError("Falha inesperada do tipo {ExceptionType}; trace {TraceId}",
+                    exception.GetType().Name, context.Response.Headers["X-Trace-Id"].ToString());
             }
-            await Results.Problem(statusCode: status, title: title).ExecuteAsync(context);
+            await Results.Problem(statusCode: status, title: title,
+                extensions: new Dictionary<string, object?> { ["traceId"] = context.Response.Headers["X-Trace-Id"].ToString() }).ExecuteAsync(context);
         }
     }
 }

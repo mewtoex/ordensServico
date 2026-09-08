@@ -52,8 +52,18 @@ jobs:
       - name: Build
         run: dotnet build ServiceOrders.sln --configuration Release --no-restore
 
-      - name: Test
+      - name: Test API, logout, monitoring and SQL Server backup restoration
         run: dotnet test ServiceOrders.sln --configuration Release --no-build --no-restore --logger trx --results-directory TestResults
+
+      - name: Validate PowerShell scripts
+        shell: pwsh
+        run: |
+          Get-ChildItem scripts/*.ps1 | ForEach-Object {
+            $parseTokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors) { throw ($parseErrors | Out-String) }
+          }
 
       - name: Upload test results
         if: always()

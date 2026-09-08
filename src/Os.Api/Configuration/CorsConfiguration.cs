@@ -12,7 +12,7 @@ public static class CorsConfiguration
             .WithOrigins(normalizedOrigins)
             .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
             .WithHeaders("Authorization", "Content-Type")
-            .WithExposedHeaders("Content-Disposition", "Location")));
+            .WithExposedHeaders("Content-Disposition", "Location", "X-Trace-Id")));
 
         return services;
     }

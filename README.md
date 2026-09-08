@@ -184,3 +184,45 @@ Clientes, catálogo e itens da OS possuem `DeletedAt` (UTC). Os endpoints DELETE
 Itens removidos continuam no banco com seus preços e quantidades originais e registro de auditoria, mas ficam fora dos DTOs, comprovantes, totais e receita mensal. Uma OS encerrada continua bloqueada para alterações. Usuários mantêm a desativação por `Active`, com revogação de tokens; OS mantêm o cancelamento por status, sem apagar histórico.
 
 A migration `AddSoftDeletion` adiciona três colunas nullable sem apagar registros existentes. O teste de integração cobre exclusão de cadastros vinculados, permissões, bloqueio de reutilização, preservação da OS/PDF, remoção de itens e cálculo da receita.
+
+## Logout
+
+`POST /api/auth/logout` exige JWT e não recebe corpo. Retorna 204 e revoga todas as sessões do usuário autenticado, em todos os dispositivos: access tokens e refresh tokens anteriores passam a retornar 401. Outros usuários não são afetados. O frontend deve apagar os tokens locais após sucesso e voltar ao login. Uma requisição que já passou pela autenticação antes da revogação pode concluir normalmente. Repetir a chamada com o token revogado retorna 401. Não é necessária migration adicional.
+
+## Logs e monitoramento
+
+Os logs do backend são JSON no console, com timestamp UTC. Cada requisição gera método, template da rota, status, duração e `TraceId`. O identificador também aparece no header `X-Trace-Id` (exposto pelo CORS) e nos erros tratados pelo middleware. Corpos, senhas, tokens, query strings e caminhos brutos não são incluídos no log de requisições. Scopes automáticos do framework estão desabilitados no console para evitar caminhos brutos. Erros inesperados registram o tipo e o trace, sem serializar mensagens SQL ou dados. Os níveis podem ser configurados em `Logging:LogLevel`; o padrão restringe logs do framework e do EF para evitar detalhes de consultas. A configuração usa o [logging nativo do ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-8.0).
+
+- `/health/live`: confirma que a API responde.
+- `/health`: verifica também SQL Server; retorna 503 quando indisponível.
+- `/metrics`: exige JWT de Admin e expõe contadores por classe de status e histograma de duração no formato Prometheus. Não inclui identificadores de usuários/clientes. Os contadores pertencem à instância e reiniciam com o processo.
+
+```powershell
+.\scripts\Test-Health.ps1 -BaseUrl http://localhost:5000 -MaxLatencyMs 2000
+```
+
+A checagem emite JSON e termina com código 1 se a API/banco falhar ou ultrapassar a latência máxima, permitindo integração com um executor externo de monitoramento. Não instala um agendamento nem um serviço de alertas. Um coletor de métricas deve enviar JWT de Admin válido e cuidar de sua renovação (o access token expira em uma hora). Para produção, encaminhe stdout a um coletor com retenção e configure alertas de indisponibilidade, taxa de 5xx e latência. O endpoint de métricas também é contado como requisição.
+
+## Backup e teste de restauração
+
+A ferramenta `tools/Os.DatabaseTools` usa `IBackupService`/`SqlBackupService`, conexão por variável de ambiente e caminhos de servidor SQL Server Linux. Os scripts são destinados ao serviço `database` do Docker Compose local e usam a conexão de `.env` quando a variável não estiver definida. O login SQL precisa de permissão para backup, criação/restauração e remoção do banco temporário.
+
+Com o Docker disponível:
+
+```powershell
+.\scripts\Update-Database.ps1 -StartDatabase
+.\scripts\Test-Integration.ps1
+.\scripts\Backup-Database.ps1
+```
+
+O backup usa `COPY_ONLY, CHECKSUM`, copia o `.bak` para `backups/`, reenvia essa cópia ao SQL Server e testa a restauração. A ferramenta executa `RESTORE VERIFYONLY WITH CHECKSUM`, lê os arquivos lógicos, restaura em `OsRestore_<GUID>` usando arquivos físicos exclusivos, executa `DBCC CHECKDB` e consulta as tabelas da aplicação/migrations. O banco de teste é removido ao terminar. Não usa `WITH REPLACE` nem restaura sobre o banco original. A [verificação de mídia](https://learn.microsoft.com/en-us/sql/t-sql/statements/restore-statements-verifyonly-transact-sql?view=sql-server-ver17) é acompanhada de restauração real para testar a recuperabilidade.
+
+O arquivo `.bak.json` registra SHA-256, data da validação e contagem de registros por tabela. O hash serve como referência para comparações posteriores; não substitui autenticação/assinatura do arquivo. Para testar novamente um backup salvo:
+
+```powershell
+.\scripts\Test-Restore.ps1 -BackupPath .\backups\osbackup-<identificador>.bak
+```
+
+Backups e seus relatórios ficam fora do Git. As cópias `.bak` no host e no volume do SQL Server são mantidas, inclusive as dos testes; os scripts não aplicam retenção automática. Defina retenção e cópia protegida fora da máquina conforme o ambiente. O backup contém dados de clientes e hashes de credenciais, portanto restrinja o acesso e use armazenamento criptografado em produção. Uma cópia no mesmo disco não protege contra perda desse disco. Os scripts não configuram agendamento. Para recuperação operacional, o teste gera e remove um banco temporário; uma restauração definitiva deve ser planejada separadamente.
+
+O GitHub Actions compila a ferramenta, valida sintaxe dos scripts e inclui os testes de logout, métricas e backup/restauração do SQL Server. Enquanto o Docker local estiver fechado, a migration pendente e os testes de integração desta etapa precisam aguardar sua inicialização. Publicar as alterações e confirmar o workflow do novo commit também é necessário; o resultado de um commit anterior não valida esta etapa.

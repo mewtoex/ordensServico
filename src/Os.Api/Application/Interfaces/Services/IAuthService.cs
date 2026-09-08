@@ -6,4 +6,5 @@ public interface IAuthService
     Task<UserResponse> Me();
     Task<LoginResponse?> Refresh(RefreshRequest request);
     Task ChangePassword(ChangePasswordRequest request);
+    Task Logout();
 }
