@@ -61,7 +61,10 @@ public sealed class SqlServerApiFactory : WebApplicationFactory<Program>, IAsync
         using var scope = Services.CreateScope();
         var database = scope.ServiceProvider.GetRequiredService<OsDb>();
         _created = true;
-        await database.Database.MigrateAsync();
+        await using (var schema = ((SynchronizedOsDb)database).CreateSchemaContext())
+        {
+            await schema.Database.MigrateAsync();
+        }
         var admin = new User { Name = "Integration Admin", Email = AdminEmail, Role = Role.Admin };
         admin.PasswordHash = new PasswordHasher<User>().HashPassword(admin, Password);
         database.Users.Add(admin);

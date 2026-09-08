@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Os.Api.Domain;
 using Os.Api.Infra;
 using Os.IntegrationTests;
@@ -8,6 +10,24 @@ namespace Os.Tests;
 
 public class ConcurrentSaveGateTests
 {
+    [Fact]
+    public void SchemaContextDiscoversProductionMigrationsAndGeneratesUsersTable()
+    {
+        var options = new DbContextOptionsBuilder<OsDb>()
+            .UseSqlServer("Server=localhost;Database=SchemaDiscoveryOnly;Integrated Security=true;TrustServerCertificate=true")
+            .Options;
+        using var database = new SynchronizedOsDb(options, new ConcurrentSaveGate());
+        using var schema = database.CreateSchemaContext();
+        Assert.IsType<OsDb>(schema);
+        var migrations = schema.Database.GetMigrations().ToArray();
+        Assert.Contains("20260908134144_InitialCreate", migrations);
+        Assert.Contains("20260908151123_AddSoftDeletion", migrations);
+        var script = schema.GetService<IMigrator>().GenerateScript();
+        Assert.Contains("CREATE TABLE [Users]", script);
+        Assert.Contains("CREATE TABLE [RefreshSessions]", script);
+        Assert.Contains("[DeletedAt]", script);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
