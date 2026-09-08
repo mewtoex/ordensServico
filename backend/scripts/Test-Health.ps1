@@ -1,5 +1,5 @@
 param(
-    [uri]$BaseUrl = 'http://localhost:5000',
+    [uri]$BaseUrl = 'http://localhost:5080',
     [ValidateRange(1, 60)][int]$TimeoutSeconds = 10,
     [ValidateRange(1, 60000)][int]$MaxLatencyMs = 2000
 )

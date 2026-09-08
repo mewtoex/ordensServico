@@ -4,7 +4,7 @@ React 19, TypeScript estrito, Vite, Tailwind CSS e componentes oficiais shadcn/u
 
 ## Executar
 
-Requisitos: Node.js 24 e npm. Inicie o backend em `http://localhost:5080`, conforme o README da raiz.
+Requisitos: Node.js 24 e npm. Inicie o backend em `http://localhost:5080`, conforme a [documentação do backend](../backend/README.md).
 
 ```powershell
 cd frontend

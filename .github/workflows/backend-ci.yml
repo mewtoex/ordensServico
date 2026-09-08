@@ -16,6 +16,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
     env:
       DOTNET_NOLOGO: "true"
       DOTNET_CLI_TELEMETRY_OPTOUT: "true"
@@ -70,6 +73,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-results
-          path: TestResults/*.trx
+          path: backend/TestResults/*.trx
           if-no-files-found: ignore
           retention-days: 7
