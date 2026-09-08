@@ -1,6 +1,6 @@
-# Gestão de Ordens de Serviço — Backend
+# Gestão de Ordens de Serviço
 
-API REST em ASP.NET Core 8, Entity Framework Core e SQL Server. Código organizado em Domain (entidades e transições), Application (contratos e serviços de aplicação) e Infra (persistência e migrations). Frontend ainda não iniciado.
+API REST em ASP.NET Core 8, Entity Framework Core e SQL Server. Código organizado em Domain (entidades e transições), Application (contratos e serviços de aplicação) e Infra (persistência e migrations). Frontend React/TypeScript em `frontend/`, com shadcn/ui e Sonner.
 
 ## Executar no PowerShell
 
@@ -226,3 +226,16 @@ O arquivo `.bak.json` registra SHA-256, data da validação e contagem de regist
 Backups e seus relatórios ficam fora do Git. As cópias `.bak` no host e no volume do SQL Server são mantidas, inclusive as dos testes; os scripts não aplicam retenção automática. Defina retenção e cópia protegida fora da máquina conforme o ambiente. O backup contém dados de clientes e hashes de credenciais, portanto restrinja o acesso e use armazenamento criptografado em produção. Uma cópia no mesmo disco não protege contra perda desse disco. Os scripts não configuram agendamento. Para recuperação operacional, o teste gera e remove um banco temporário; uma restauração definitiva deve ser planejada separadamente.
 
 O GitHub Actions compila a ferramenta, valida sintaxe dos scripts e inclui os testes de logout, métricas e backup/restauração do SQL Server. Enquanto o Docker local estiver fechado, a migration pendente e os testes de integração desta etapa precisam aguardar sua inicialização. Publicar as alterações e confirmar o workflow do novo commit também é necessário; o resultado de um commit anterior não valida esta etapa.
+
+
+## Frontend
+
+O frontend em `frontend/` inclui autenticação, painel, clientes, catálogo, usuários, ordens, itens, histórico e comprovantes. Usa serviços com interfaces, cliente HTTP centralizado, validações Zod, TanStack Query e toasts Sonner. Consulte [a documentação do frontend](frontend/README.md).
+
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
+
+Abra `http://localhost:5173` com a API disponível em `http://localhost:5080`. Para outra API, configure `VITE_API_URL`. Não há dados de demonstração no aplicativo. O workflow de frontend valida formatação, lint, testes e build separadamente do backend.

@@ -43,3 +43,8 @@ Desktop.ini
 
 # Arquivos temporários de revisão visual
 tmp/
+
+# Frontend React
+**/node_modules/
+frontend/dist/
+frontend/coverage/
