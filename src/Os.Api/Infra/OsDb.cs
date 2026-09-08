@@ -12,6 +12,8 @@ public class OsDb(DbContextOptions<OsDb> options) : DbContext(options)
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<AuditEntry>().Property(entry => entry.Id).ValueGeneratedNever();
+        b.Entity<OrderItem>().Property(item => item.Id).ValueGeneratedNever();
         b.Entity<AuditEntry>().ToTable("AuditEntry");
         b.Entity<User>().HasIndex(x => x.Email).IsUnique();
         b.Entity<User>().Property(x => x.Email).HasMaxLength(254);

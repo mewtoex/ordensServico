@@ -12,6 +12,7 @@ using Os.Api.Application.Services;
 using Os.Api.Domain;
 using Os.Api.Infra;
 using Os.Api.Infra.Auth;
+using Os.Api.Infra.Health;
 using Os.Api.Infra.Repositories;
 
 namespace Os.Api.Configuration;
@@ -44,7 +45,9 @@ public static class DependencyInjection
         services.AddControllers().AddJsonOptions(options =>
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
         services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen();
+        services.AddFrontendCors(configuration);
+        services.AddApiDocumentation();
+        services.AddHealthChecks().AddCheck<SqlServerHealthCheck>("sqlserver", timeout: TimeSpan.FromSeconds(5));
         services.AddJwtAuthentication(configuration);
         services.AddAuthorization();
         services.AddRateLimiter(options =>

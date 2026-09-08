@@ -11,11 +11,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseRouting();
+app.UseCors(CorsConfiguration.CorsPolicy);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapBackendHealthChecks();
 if (args.Contains("--seed-admin"))
 {
     using var scope = app.Services.CreateScope();
@@ -23,3 +25,5 @@ if (args.Contains("--seed-admin"))
     return;
 }
 app.Run();
+
+public partial class Program { }

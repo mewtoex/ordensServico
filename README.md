@@ -21,7 +21,7 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 dotnet run --project src/Os.Api -- --urls http://localhost:5080
 ```
 
-Swagger: http://localhost:5080/swagger. Faça login em `POST /api/auth/login` e envie `Authorization: Bearer <accessToken>` nas chamadas autenticadas. Token expira em uma hora. Usuário desativado perde acesso mesmo com token ainda válido. Não há cadastro público.
+Swagger: http://localhost:5080/swagger. Faça login em `POST /api/auth/login`, clique em **Authorize** e cole o `accessToken`. Em outros clientes, envie `Authorization: Bearer <accessToken>`. Token expira em uma hora. Usuário desativado perde acesso mesmo com token ainda válido. Não há cadastro público.
 
 Em produção, publique atrás de HTTPS, configure segredos fora do repositório, use usuário de banco com permissões limitadas e certificado válido (remova `TrustServerCertificate=true`). Migrations são executadas explicitamente antes da aplicação.
 
@@ -37,7 +37,8 @@ Em produção, publique atrás de HTTPS, configure segredos fora do repositório
 - `GET /api/orders/{id}/history`: ator, ação, detalhes e horário UTC.
 - `GET /api/orders/{id}/summary`: download de mensagem formatada em TXT. PDF e envio de webhook não estão implementados.
 - Admin: `GET /api/reports/monthly?year=2026&month=9`: quantidade criada e receita de OS concluídas no mês (UTC).
-- `GET /health`: disponibilidade do processo, sem testar banco.
+- `GET /health`: prontidão com conexão real ao SQL Server; retorna 200 quando saudável e 503 em falhas.
+- `GET /health/live`: disponibilidade do processo, independente do banco.
 
 Listagens de clientes, catálogo e OS aceitam `page` (padrão 1) e `pageSize` (padrão 20, máximo 100). OS também aceita `customerId`, `search` (nome do cliente), `status`, `from` (inclusivo), `to` (exclusivo), com datas ISO 8601. Retorno contém `total`, `page`, `pageSize` e `data`.
 
@@ -54,10 +55,11 @@ Criação, status e alterações de itens geram histórico no mesmo salvamento. 
 ## Validação
 
 ```powershell
-dotnet test ServiceOrders.sln --configuration Release
+dotnet test tests/Os.Tests --configuration Release
+.\scripts\Test-Integration.ps1
 ```
 
-Os testes unitários cobrem totais, transições, auditoria, preços históricos, quantidades inválidas e bloqueio de itens após encerramento. Compilação, testes unitários e smoke HTTP (health, Swagger e 401 sem token) verificados. A migration inicial foi aplicada e conferida no SQL Server local. Os testes automatizados de repositories continuam usando InMemory; testes completos de integração HTTP/SQL Server ainda não foram executados.
+Os testes unitários cobrem regras de negócio, services, contratos, arquitetura e validação decimal em pt-BR/en-US. Os testes de integração usam HTTP, autenticação JWT e SQL Server real, com migrations, isolamento entre técnicos, auditoria, concorrência, CORS, Swagger e saúde do banco.
 
 ## Organização e formatação
 
@@ -95,12 +97,13 @@ Para reproduzir localmente:
 dotnet restore ServiceOrders.sln --configfile NuGet.Config
 dotnet format ServiceOrders.sln --no-restore --verify-no-changes
 dotnet build ServiceOrders.sln --configuration Release --no-restore
-dotnet test ServiceOrders.sln --configuration Release --no-build --no-restore --logger trx --results-directory TestResults
+dotnet test tests/Os.Tests --configuration Release --no-build --no-restore --logger trx --results-directory TestResults
+.\scripts\Test-Integration.ps1 -NoBuild
 ```
 
 Os testes de services usam mocks das interfaces; os de repositories usam EF InMemory para conferir filtros, paginação e relatórios. InMemory não valida transações, constraints, SQL gerado ou concorrência de SQL Server. Os testes de arquitetura conferem interfaces, injeção de dependência e retornos sem entidades de domínio.
 
-O workflow está preparado localmente. Sua execução remota começa quando os arquivos forem enviados a um repositório GitHub; nenhum remoto está configurado neste projeto.
+O workflow utiliza um SQL Server temporário com health check no runner do GitHub. A senha declarada no workflow pertence exclusivamente ao banco descartável do CI. Os testes exigem `IntegrationTests__ConnectionString`; não são ignorados silenciosamente quando essa configuração falta.
 
 ## Banco local criado
 
@@ -119,3 +122,29 @@ Para reaplicar as migrations pendentes com o SQL Server já pronto:
 ```
 
 O script carrega a conexão e a chave JWT do `.env` para o processo PowerShell. Na mesma sessão, `dotnet run --project src/Os.Api` usa essa configuração. O comando é idempotente: migrations já aplicadas não são executadas novamente.
+
+## Integração HTTP e SQL Server
+
+`tests/Os.IntegrationTests` usa `WebApplicationFactory` com o provider SQL Server. Cada execução cria um banco `OsIntegration_<GUID>`, aplica migrations e insere somente os usuários de teste. O banco é removido no final após conferir que o nome pertence à execução; o banco `ServiceOrders` não é usado nem apagado pelos testes.
+
+Para executar localmente com o SQL Server do projeto pronto:
+
+```powershell
+dotnet restore ServiceOrders.sln --configfile NuGet.Config
+dotnet test tests/Os.Tests --configuration Release --no-restore
+.\scripts\Test-Integration.ps1
+```
+
+O script usa `IntegrationTests__ConnectionString` quando já definida, ou lê a conexão do `.env` apenas para localizar o servidor; os testes substituem sempre o nome do banco. O login SQL precisa de permissão para criar e remover bancos de teste. Em outro ambiente, defina essa variável explicitamente.
+
+Os testes de concorrência sincronizam duas requisições HTTP após a leitura da mesma rowversion. Verificam que uma vence, a outra recebe 409 e nenhum item ou registro de auditoria da operação perdedora é persistido.
+
+## Configuração para o frontend
+
+`Cors:AllowedOrigins` contém as origens permitidas. Em desenvolvimento, `appsettings.Development.json` permite `http://localhost:5173` e `http://localhost:3000`. Em produção, nenhuma origem é permitida por padrão. Configure, por exemplo, `Cors__AllowedOrigins__0=https://app.example.com`. Informe somente origem, sem caminho ou wildcard.
+
+São aceitos os métodos GET, POST, PUT, PATCH e DELETE, com headers Authorization e Content-Type. Location e Content-Disposition são expostos ao navegador. Não há cookies de autenticação nem liberação irrestrita de origens.
+
+## Correções verificadas pela integração
+
+A validação de preços usa cultura invariável para interpretar os limites decimais. Os IDs de itens e auditoria são gerados no domínio e mapeados com `ValueGeneratedNever`, evitando que novos registros sejam tratados como atualizações. A migration `ConfigureClientAssignedChildIds` registra essa mudança no snapshot do EF, sem DDL sobre as tabelas existentes.
