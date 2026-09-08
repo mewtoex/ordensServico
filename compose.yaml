@@ -1,0 +1,12 @@
+services:
+  database:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD}
+    ports:
+      - "127.0.0.1:1433:1433"
+    volumes:
+      - os-data:/var/opt/mssql
+volumes:
+  os-data:

@@ -1,0 +1,41 @@
+# Build e publicação .NET
+**/bin/
+**/obj/
+artifacts/
+
+# Credenciais e configurações locais
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+*.pfx
+*.p12
+*.key
+
+# IDEs e preferências pessoais
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Testes e cobertura
+**/TestResults/
+**/coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Logs e arquivos temporários
+**/logs/
+*.log
+*.tmp
+*.bak
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+Desktop.ini
