@@ -93,6 +93,7 @@ public class ApiIntegrationTests(SqlServerApiFactory factory) : IClassFixture<Sq
             var responses = await Task.WhenAll(
                 client.PatchAsJsonAsync($"/api/orders/{order.Id}/status", new StatusRequest(OrderStatus.Concluida), SqlServerApiFactory.Json),
                 client.PatchAsJsonAsync($"/api/orders/{order.Id}/status", new StatusRequest(OrderStatus.Cancelada), SqlServerApiFactory.Json));
+            Assert.Equal(2, factory.SaveGate.Arrivals);
             Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
             var conflict = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);
             Assert.Equal("application/problem+json", conflict.Content.Headers.ContentType?.MediaType);

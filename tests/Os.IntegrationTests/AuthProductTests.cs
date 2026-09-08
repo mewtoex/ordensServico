@@ -76,6 +76,7 @@ public class AuthProductTests(SqlServerApiFactory factory) : IClassFixture<SqlSe
             var responses = await Task.WhenAll(
                 anonymous.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(login.RefreshToken!)),
                 anonymous.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(login.RefreshToken!)));
+            Assert.Equal(2, factory.SaveGate.Arrivals);
             var success = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
             Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);
             var renewed = (await success.Content.ReadFromJsonAsync<LoginResponse>(SqlServerApiFactory.Json))!;

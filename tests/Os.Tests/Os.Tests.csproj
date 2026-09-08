@@ -14,5 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Os.Api/Os.Api.csproj"/>
+    <Compile Include="../Os.IntegrationTests/ConcurrentSaveGate.cs" Link="Infrastructure/ConcurrentSaveGate.cs" />
+    <Compile Include="../Os.IntegrationTests/SynchronizedOsDb.cs" Link="Infrastructure/SynchronizedOsDb.cs" />
   </ItemGroup>
 </Project>

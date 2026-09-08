@@ -52,7 +52,8 @@ public sealed class SqlServerApiFactory : WebApplicationFactory<Program>, IAsync
         builder.UseSetting("Jwt:Key", "integration-only-signing-key-at-least-32-bytes");
         builder.UseSetting("Cors:AllowedOrigins:0", AllowedOrigin);
         builder.UseSetting("Cors:AllowedOrigins:1", "https://secondary.integration.example");
-        builder.ConfigureServices(services => services.AddDbContext<OsDb>(options => options.AddInterceptors(SaveGate)));
+        builder.ConfigureServices(services => services.AddScoped<OsDb>(provider =>
+            new SynchronizedOsDb(provider.GetRequiredService<DbContextOptions<OsDb>>(), SaveGate)));
     }
 
     public async Task InitializeAsync()

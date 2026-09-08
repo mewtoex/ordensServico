@@ -1,47 +1,50 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Os.Api.Domain;
+using Os.Api.Infra;
 
 namespace Os.IntegrationTests;
 
-// Synchronizes two HTTP requests after both have read the same SQL Server rowversion.
-public sealed class ConcurrentSaveGate : SaveChangesInterceptor
+// Test-only barrier: two distinct contexts must arrive before either can save.
+public sealed class ConcurrentSaveGate
 {
-    private Guid _orderId;
-    private Guid _sessionId;
-    private int _arrivals;
-    private TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-    public void Arm(Guid orderId)
+    private readonly object sync = new();
+    private Guid orderId;
+    private Guid sessionId;
+    private readonly HashSet<Guid> arrivals = [];
+    private TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public int Arrivals { get { lock (sync) return arrivals.Count; } }
+    public void Arm(Guid id) => Arm(id, Guid.Empty);
+    public void ArmSession(Guid id) => Arm(Guid.Empty, id);
+    private void Arm(Guid order, Guid session)
     {
-        _sessionId = Guid.Empty;
-        _orderId = orderId;
-        _arrivals = 0;
-        _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    }
-
-    public void ArmSession(Guid sessionId)
-    {
-        Arm(Guid.Empty);
-        _sessionId = sessionId;
-    }
-
-    public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
-        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
-    {
-        if ((_orderId != Guid.Empty && eventData.Context!.ChangeTracker.Entries<ServiceOrder>()
-            .Any(entry => entry.Entity.Id == _orderId && entry.State == EntityState.Modified))
-            || (_sessionId != Guid.Empty && eventData.Context!.ChangeTracker.Entries<RefreshSession>()
-            .Any(entry => entry.Entity.Id == _sessionId && entry.State == EntityState.Modified)))
+        lock (sync)
         {
-            if (Interlocked.Increment(ref _arrivals) == 2)
-            {
-                _sessionId = Guid.Empty;
-                _orderId = Guid.Empty;
-                _release.TrySetResult();
-            }
-            await _release.Task.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+            orderId = order;
+            sessionId = session;
+            arrivals.Clear();
+            release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
-        return result;
+    }
+    public async Task WaitAsync(OsDb database, CancellationToken cancellationToken)
+    {
+        Task wait;
+        lock (sync)
+        {
+            database.ChangeTracker.DetectChanges();
+            var matches = (orderId != Guid.Empty && database.ChangeTracker.Entries<ServiceOrder>()
+                .Any(entry => entry.Entity.Id == orderId && entry.State == EntityState.Modified))
+                || (sessionId != Guid.Empty && database.ChangeTracker.Entries<RefreshSession>()
+                .Any(entry => entry.Entity.Id == sessionId && entry.State == EntityState.Modified));
+            if (!matches)
+                return;
+            arrivals.Add(database.ContextId.InstanceId);
+            wait = release.Task;
+            if (arrivals.Count == 2)
+            {
+                orderId = sessionId = Guid.Empty;
+                release.TrySetResult();
+            }
+        }
+        await wait.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
     }
 }
